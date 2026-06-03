@@ -23,8 +23,8 @@ ANDROID_JAR="$PRJ/tools/sdk/platforms/android-34/android.jar"
 KEYSTORE="$OUT/debug.keystore"
 
 # Clean
-rm -rf "$OBJ" "$GEN"
-mkdir -p "$OBJ" "$GEN/com/overlaybot/anime"
+rm -rf "$OBJ" "$GEN" "$OUT"
+mkdir -p "$OBJ" "$GEN/com/overlaybot/anime" "$OUT"
 
 echo "═══ STEP 1: aapt2 compile resources ═══"
 RES_COMPILED="$OBJ/resources.zip"
