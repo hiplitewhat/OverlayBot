@@ -1,0 +1,21 @@
+# Build output
+out/
+obj/
+gen/
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keystore (security)
+*.keystore
+
+# Downloaded SDK binaries (CI fetches these)
+tools/sdk/build-tools/
+tools/sdk/platforms/
+tools/cmdline-tools-latest/
+tools/cmdline-tools.zip
