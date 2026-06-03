@@ -36,7 +36,7 @@ public class AniListLoginActivity extends Activity {
     // Default client ID — user should register their own at:
     // https://anilist.co/settings/developer
     // Redirect URI must be set to: overlaybot://anilist-auth
-    private static final String DEFAULT_CLIENT_ID = "21011";
+    private static final String DEFAULT_CLIENT_ID = "42878";
     private static final String REDIRECT_URI = "overlaybot://anilist-auth";
     private static final String AUTH_URL =
             "https://anilist.co/api/v2/oauth/authorize?client_id="
