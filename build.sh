@@ -6,7 +6,9 @@
 # ──────────────────────────────────────────────────────────
 set -e
 
-PRJ="/home/z/my-project/overlay-bot"
+# Resolve project directory from script location (works on any machine)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PRJ="$SCRIPT_DIR"
 OUT="$PRJ/out"
 OBJ="$PRJ/obj"
 GEN="$PRJ/gen"
@@ -112,8 +114,10 @@ SIGNED="$OUT/OverlayBot.apk"
     "$ALIGNED"
 echo "  ✓ APK signed (v1+v2+v3)"
 
-# Copy to download dir
-cp "$SIGNED" "/home/z/my-project/download/OverlayBot.apk"
+# Copy to download dir (if exists)
+DL_DIR="$PRJ/download"
+mkdir -p "$DL_DIR" 2>/dev/null || true
+cp "$SIGNED" "$DL_DIR/OverlayBot.apk" 2>/dev/null || true
 
 # Verify
 echo ""
@@ -125,5 +129,4 @@ echo "════════════════════════�
 echo "  BUILD SUCCESS!"
 echo "  Output: $SIGNED"
 echo "  Size: $(du -h "$SIGNED" | cut -f1)"
-echo "  Also: /home/z/my-project/download/OverlayBot.apk"
 echo "═══════════════════════════════════════════"
