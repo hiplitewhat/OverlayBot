@@ -280,6 +280,79 @@
         android:alpha="0.4"
         android:layout_marginBottom="12dp" />
 
+    <!-- ═══ RECOMMENDATIONS section ═══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="6dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="RECOMMENDATIONS"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="@color/neon_magenta"
+            android:letterSpacing="0.15" />
+
+        <Button
+            android:id="@+id/btn_recommend"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:text="FOR YOU"
+            android:textSize="10sp"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/neon_magenta"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp" />
+
+        <Button
+            android:id="@+id/btn_trending"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:text="TRENDING"
+            android:textSize="10sp"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/accent_gold"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:layout_marginStart="4dp" />
+
+        <Button
+            android:id="@+id/btn_upcoming"
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:text="UPCOMING"
+            android:textSize="10sp"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/alert_green"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:layout_marginStart="4dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/recommendations_display"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tap FOR YOU, TRENDING, or UPCOMING to discover anime"
+        android:textSize="13sp"
+        android:textColor="@color/white_text"
+        android:alpha="0.6"
+        android:lineSpacingExtra="6dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- ═══ Divider ═══ -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/neon_magenta"
+        android:alpha="0.4"
+        android:layout_marginBottom="12dp" />
+
     <!-- ═══ ALERT HISTORY ═══ -->
     <TextView
         android:layout_width="wrap_content"
