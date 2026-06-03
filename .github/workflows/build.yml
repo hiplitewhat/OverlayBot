@@ -37,12 +37,12 @@ jobs:
 
       - name: Download ECJ compiler
         run: |
+          mkdir -p tools/sdk/build-tools/34.0.0 tools/sdk/platforms/android-34
           curl -fsSL "https://repo1.maven.org/maven2/org/eclipse/jdt/ecj/3.33.0/ecj-3.33.0.jar" -o tools/ecj.jar || \
           curl -fsSL "https://repo1.maven.org/maven2/org/eclipse/jdt/core/compiler/ecj/4.6.1/ecj-4.6.1.jar" -o tools/ecj.jar
 
       - name: Patch build paths for CI
         run: |
-          mkdir -p tools/sdk/build-tools/34.0.0 tools/sdk/platforms/android-34
           cp -r $HOME/android-sdk/build-tools/34.0.0/* tools/sdk/build-tools/34.0.0/
           cp $HOME/android-sdk/platforms/android-34/android.jar tools/sdk/platforms/android-34/
 
