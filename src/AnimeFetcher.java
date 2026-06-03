@@ -146,6 +146,206 @@ public class AnimeFetcher {
     }
 
     /**
+     * Fetches trending anime from AniList.
+     * Uses MediaTrend for currently trending, or high-popularity upcoming.
+     */
+    public static List<AnimeEntry> fetchTrending() {
+        String query =
+            "query{" +
+            "Page(page:1,perPage:10){" +
+            "media(type:ANIME,sort:TRENDING_DESC,isAdult:false){" +
+            "id title{romaji english}episodes averageScore" +
+            "nextAiringEpisode{episode airingAt}" +
+            "siteUrl coverImage{medium}description" +
+            "}}}";
+        return fetchGraphQL(query, null);
+    }
+
+    /**
+     * Fetches top-rated anime of all time from AniList.
+     */
+    public static List<AnimeEntry> fetchTopRated() {
+        String query =
+            "query{" +
+            "Page(page:1,perPage:10){" +
+            "media(type:ANIME,sort:SCORE_DESC,isAdult:false){" +
+            "id title{romaji english}episodes averageScore" +
+            "nextAiringEpisode{episode airingAt}" +
+            "siteUrl coverImage{medium}description" +
+            "}}}";
+        return fetchGraphQL(query, null);
+    }
+
+    /**
+     * Fetches upcoming (next season) anime from AniList.
+     */
+    public static List<AnimeEntry> fetchUpcoming() {
+        // Determine next season
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int month = cal.get(java.util.Calendar.MONTH); // 0-based
+        int year = cal.get(java.util.Calendar.YEAR);
+        String nextSeason;
+        int nextYear = year;
+        if (month >= 0 && month < 3) { nextSeason = "SPRING"; }
+        else if (month >= 3 && month < 6) { nextSeason = "SUMMER"; }
+        else if (month >= 6 && month < 9) { nextSeason = "FALL"; }
+        else { nextSeason = "WINTER"; nextYear = year + 1; }
+
+        String query =
+            "query($season:MediaSeason,$seasonYear:Int){" +
+            "Page(page:1,perPage:10){" +
+            "media(type:ANIME,season:$season,seasonYear:$seasonYear,sort:POPULARITY_DESC,isAdult:false){" +
+            "id title{romaji english}episodes averageScore" +
+            "nextAiringEpisode{episode airingAt}" +
+            "siteUrl coverImage{medium}description" +
+            "}}}";
+        JSONObject variables = new JSONObject();
+        try {
+            variables.put("season", nextSeason);
+            variables.put("seasonYear", nextYear);
+        } catch (Exception e) {
+            Log.e(TAG, "JSON var failed: " + e.getMessage());
+            return new ArrayList<AnimeEntry>();
+        }
+        return fetchGraphQL(query, variables);
+    }
+
+    /**
+     * Fetches personalized recommendations for the logged-in user.
+     * Uses AniList's recommendation system based on the user's watching list.
+     * If not logged in, falls back to top-rated + trending mix.
+     */
+    public static List<AnimeEntry> fetchRecommendations(List<Integer> excludeIds) {
+        // If logged in, try to get recommendations based on user's genres
+        if (sAuthToken != null && !sAuthToken.isEmpty()) {
+            List<AnimeEntry> result = fetchPersonalizedRecommendations(excludeIds);
+            if (!result.isEmpty()) return result;
+        }
+
+        // Fallback: mix of trending + top rated, excluding already known
+        List<AnimeEntry> mixed = new ArrayList<AnimeEntry>();
+        List<AnimeEntry> trending = fetchTrending();
+        List<AnimeEntry> topRated = fetchTopRated();
+
+        // Add trending first, then top-rated (dedup)
+        java.util.Set<Integer> seen = new java.util.HashSet<Integer>();
+        if (excludeIds != null) {
+            for (Integer id : excludeIds) seen.add(id);
+        }
+        for (AnimeEntry e : trending) {
+            if (!seen.contains(e.id)) { mixed.add(e); seen.add(e.id); }
+        }
+        for (AnimeEntry e : topRated) {
+            if (!seen.contains(e.id)) { mixed.add(e); seen.add(e.id); }
+        }
+
+        // Cap at 10
+        if (mixed.size() > 10) {
+            return mixed.subList(0, 10);
+        }
+        return mixed;
+    }
+
+    /**
+     * Personalized recommendations: fetches the user's watching list genres,
+     * then searches for highly-rated anime in those genres.
+     */
+    private static List<AnimeEntry> fetchPersonalizedRecommendations(List<Integer> excludeIds) {
+        try {
+            // Get user's watching list with genres
+            String query =
+                "query{" +
+                "Viewer{" +
+                "  mediaList(type:ANIME,status:CURRENT,sort:UPDATED_TIME_DESC,perRequest:25){" +
+                "    media{" +
+                "      id genres" +
+                "    }" +
+                "  }" +
+                "}}";
+
+            JSONObject body = new JSONObject();
+            body.put("query", query);
+            String json = httpPost(API_URL, body.toString());
+            if (json == null || json.isEmpty()) return new ArrayList<AnimeEntry>();
+
+            JSONObject root = new JSONObject(json);
+            if (root.optJSONArray("errors") != null) return new ArrayList<AnimeEntry>();
+            JSONObject data = root.optJSONObject("data");
+            if (data == null) return new ArrayList<AnimeEntry>();
+            JSONObject viewer = data.optJSONObject("Viewer");
+            if (viewer == null) return new ArrayList<AnimeEntry>();
+
+            JSONArray mediaList = viewer.optJSONArray("mediaList");
+            if (mediaList == null || mediaList.length() == 0) return new ArrayList<AnimeEntry>();
+
+            // Collect genres from watching list
+            java.util.Map<String, Integer> genreCount = new java.util.HashMap<String, Integer>();
+            for (int i = 0; i < mediaList.length(); i++) {
+                JSONObject item = mediaList.getJSONObject(i);
+                JSONObject media = item.optJSONObject("media");
+                if (media == null) continue;
+                JSONArray genres = media.optJSONArray("genres");
+                if (genres == null) continue;
+                for (int g = 0; g < genres.length(); g++) {
+                    String genre = genres.getString(g);
+                    Integer cnt = genreCount.get(genre);
+                    genreCount.put(genre, cnt == null ? 1 : cnt + 1);
+                }
+            }
+
+            // Sort genres by frequency
+            java.util.List<java.util.Map.Entry<String, Integer>> sorted =
+                new java.util.ArrayList<java.util.Map.Entry<String, Integer>>(genreCount.entrySet());
+            java.util.Collections.sort(sorted,
+                new java.util.Comparator<java.util.Map.Entry<String, Integer>>() {
+                    @Override public int compare(java.util.Map.Entry<String, Integer> a,
+                                                 java.util.Map.Entry<String, Integer> b) {
+                        return b.getValue().compareTo(a.getValue());
+                    }
+                });
+
+            // Pick top 2 genres
+            String genre1 = sorted.size() > 0 ? sorted.get(0).getKey() : null;
+            String genre2 = sorted.size() > 1 ? sorted.get(1).getKey() : null;
+
+            if (genre1 == null) return new ArrayList<AnimeEntry>();
+
+            // Search by top genre, high score
+            String recQuery =
+                "query($genre:String){" +
+                "Page(page:1,perPage:10){" +
+                "media(type:ANIME,genre:$genre,sort:SCORE_DESC,isAdult:false){" +
+                "id title{romaji english}episodes averageScore" +
+                "nextAiringEpisode{episode airingAt}" +
+                "siteUrl coverImage{medium}description" +
+                "}}}";
+            JSONObject vars = new JSONObject();
+            vars.put("genre", genre1);
+
+            List<AnimeEntry> results = fetchGraphQL(recQuery, vars);
+
+            // Filter out already-watched
+            if (excludeIds != null && !excludeIds.isEmpty()) {
+                java.util.Set<Integer> exclude = new java.util.HashSet<Integer>(excludeIds);
+                java.util.Iterator<AnimeEntry> it = results.iterator();
+                while (it.hasNext()) {
+                    if (exclude.contains(it.next().id)) it.remove();
+                }
+            }
+
+            Log.i(TAG, "Personalized recs by genre " + genre1
+                + (genre2 != null ? "+" + genre2 : "")
+                + ": " + results.size() + " results");
+
+            return results;
+
+        } catch (Exception e) {
+            Log.e(TAG, "Personalized recs failed: " + e.getMessage());
+            return new ArrayList<AnimeEntry>();
+        }
+    }
+
+    /**
      * Fetches the logged-in user's AniList "Watching" list.
      * Requires auth token to be set via setAuthToken().
      * Returns username, user ID, and list of anime entries.
