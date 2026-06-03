@@ -40,8 +40,8 @@ echo "═══ STEP 2: aapt2 link ═══"
     --custom-package com.overlaybot.anime \
     --min-sdk-version 26 \
     --target-sdk-version 34 \
-    --version-code 6 \
-    --version-name "2.1-anilist-login" \
+    --version-code 7 \
+    --version-name "2.2-recommendations" \
     -o "$OBJ/resources.apk" \
     "$RES_COMPILED"
 echo "  ✓ Resources linked + R.java generated"
