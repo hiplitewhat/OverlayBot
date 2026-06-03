@@ -36,8 +36,12 @@ public class MainActivity extends Activity {
     private TextView searchResults;
     private TextView watchlistDisplay;
     private TextView alertHistory;
+    private TextView recommendationsDisplay;
     private Button btnSearch;
     private Button btnLogin;
+    private Button btnRecommend;
+    private Button btnTrending;
+    private Button btnUpcoming;
     private Handler uiHandler;
     private WatchlistManager watchlist;
     private AuthManager auth;
@@ -60,6 +64,10 @@ public class MainActivity extends Activity {
         alertHistory    = (TextView) findViewById(R.id.alert_history);
         btnSearch       = (Button) findViewById(R.id.btn_search);
         btnLogin        = (Button) findViewById(R.id.btn_login);
+        btnRecommend    = (Button) findViewById(R.id.btn_recommend);
+        btnTrending     = (Button) findViewById(R.id.btn_trending);
+        btnUpcoming     = (Button) findViewById(R.id.btn_upcoming);
+        recommendationsDisplay = (TextView) findViewById(R.id.recommendations_display);
         uiHandler       = new Handler(Looper.getMainLooper());
         watchlist       = new WatchlistManager(this);
         auth            = new AuthManager(this);
@@ -113,6 +121,17 @@ public class MainActivity extends Activity {
                     startLogin();
                 }
             }
+        });
+
+        // Recommendation buttons
+        btnRecommend.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { fetchRecommendations("for_you"); }
+        });
+        btnTrending.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { fetchRecommendations("trending"); }
+        });
+        btnUpcoming.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { fetchRecommendations("upcoming"); }
         });
 
         refreshWatchlistDisplay();
@@ -392,6 +411,116 @@ public class MainActivity extends Activity {
                 refreshWatchlistDisplay();
                 Toast.makeText(MainActivity.this,
                         "Removed: " + item.title, Toast.LENGTH_SHORT).show();
+
+                if (OverlayService.isRunning()) {
+                    sendServiceAction(OverlayService.ACTION_REFRESH);
+                }
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
+    }
+
+    // ──────────── Recommendations ────────────
+
+    private List<AnimeFetcher.AnimeEntry> lastRecResults;
+
+    private void fetchRecommendations(final String type) {
+        recommendationsDisplay.setText("Loading " + type + " from AniList\u2026");
+        recommendationsDisplay.setAlpha(0.5f);
+        btnRecommend.setEnabled(false);
+        btnTrending.setEnabled(false);
+        btnUpcoming.setEnabled(false);
+
+        new Thread(new Runnable() {
+            @Override public void run() {
+                final List<AnimeFetcher.AnimeEntry> results;
+                if ("trending".equals(type)) {
+                    results = AnimeFetcher.fetchTrending();
+                } else if ("upcoming".equals(type)) {
+                    results = AnimeFetcher.fetchUpcoming();
+                } else {
+                    // "for_you" — personalized or trending+top rated mix
+                    List<Integer> excludeIds = watchlist.getWatchlistIds();
+                    results = AnimeFetcher.fetchRecommendations(excludeIds);
+                }
+
+                uiHandler.post(new Runnable() {
+                    @Override public void run() {
+                        btnRecommend.setEnabled(true);
+                        btnTrending.setEnabled(true);
+                        btnUpcoming.setEnabled(true);
+                        lastRecResults = results;
+
+                        if (results.isEmpty()) {
+                            recommendationsDisplay.setText("No recommendations found");
+                            recommendationsDisplay.setAlpha(0.5f);
+                            return;
+                        }
+
+                        StringBuilder sb = new StringBuilder();
+                        String label;
+                        if ("trending".equals(type)) label = "TRENDING";
+                        else if ("upcoming".equals(type)) label = "UPCOMING";
+                        else label = "FOR YOU";
+
+                        sb.append("✨ ").append(label).append(" \n");
+                        for (int i = 0; i < results.size(); i++) {
+                            AnimeFetcher.AnimeEntry e = results.get(i);
+                            boolean inList = watchlist.isInWatchlist(e.id);
+                            sb.append((i + 1)).append(". ")
+                              .append(e.displayTitle());
+                            if (e.score != null) sb.append(" \u2605").append(e.score);
+                            if (e.nextEp > 0) sb.append(" EP").append(e.nextEp);
+                            if (inList) sb.append(" [IN LIST]");
+                            sb.append("\n");
+                            if (e.synopsis != null) {
+                                String syn = e.synopsis.length() > 60
+                                    ? e.synopsis.substring(0, 60) + "\u2026" : e.synopsis;
+                                sb.append("   ").append(syn).append("\n");
+                            }
+                        }
+                        sb.append("\nTap to add to watchlist");
+                        recommendationsDisplay.setText(sb.toString());
+                        recommendationsDisplay.setAlpha(0.9f);
+
+                        recommendationsDisplay.setOnClickListener(new View.OnClickListener() {
+                            @Override public void onClick(View v) {
+                                showRecPicker();
+                            }
+                        });
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private void showRecPicker() {
+        if (lastRecResults == null || lastRecResults.isEmpty()) return;
+
+        String[] names = new String[lastRecResults.size()];
+        for (int i = 0; i < lastRecResults.size(); i++) {
+            AnimeFetcher.AnimeEntry e = lastRecResults.get(i);
+            String item = e.displayTitle();
+            if (e.score != null) item += " \u2605" + e.score;
+            if (watchlist.isInWatchlist(e.id)) item += " [IN LIST]";
+            names[i] = item;
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add recommendation to watchlist");
+        builder.setItems(names, new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface dialog, int which) {
+                AnimeFetcher.AnimeEntry e = lastRecResults.get(which);
+                if (watchlist.isInWatchlist(e.id)) {
+                    Toast.makeText(MainActivity.this,
+                            e.displayTitle() + " already in list", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                watchlist.add(e.id, e.displayTitle());
+                refreshWatchlistDisplay();
+                Toast.makeText(MainActivity.this,
+                        "Added: " + e.displayTitle(), Toast.LENGTH_SHORT).show();
 
                 if (OverlayService.isRunning()) {
                     sendServiceAction(OverlayService.ACTION_REFRESH);
